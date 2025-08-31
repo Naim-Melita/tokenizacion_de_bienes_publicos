@@ -2,67 +2,94 @@
 
 import Link from "next/link";
 import type { NextPage } from "next";
-import { useAccount } from "wagmi";
+import { useAccount, useNetwork } from "wagmi";
+import { useContractWrite, useWaitForTransaction } from "wagmi";
 import { BugAntIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { Logo } from "~~/components/Logo";
 import { Address } from "~~/components/scaffold-eth";
+import deployedContracts from "~~/contracts/deployedContracts";
 
 const Home: NextPage = () => {
   const { address: connectedAddress } = useAccount();
+  const { chain } = useNetwork();
+
+  const realEstate = (deployedContracts[31337] as any)?.RealEstateNFT;
+
+  // Logs para depuración
+  console.log("📡 Connected Address:", connectedAddress);
+  console.log("🌐 Chain info:", chain);
+  console.log("📦 Contract Info:", realEstate);
+
+  const args = connectedAddress ? [connectedAddress, "ipfs://metadata-uri-ejemplo"] : undefined;
+
+  const {
+    data,
+    write,
+    isLoading: isWriting,
+    error: writeError,
+  } = useContractWrite({
+    address: realEstate?.address as `0x${string}`,
+    abi: realEstate?.abi,
+    functionName: "mint",
+    args,
+    chainId: chain?.id,
+  });
+
+  if (writeError) {
+    console.error("❌ Write Error:", writeError);
+  }
+
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransaction({
+    hash: data?.hash,
+  });
+
+  // Log para el click en el botón
+  const handleMint = () => {
+    console.log("🚀 Mint button clicked");
+    if (write) {
+      write();
+    } else {
+      console.error("Write function not ready");
+    }
+  };
 
   return (
-    <section className="flex items-center flex-col flex-grow pt-10">
-      <div className="px-5 flex flex-col gap-2 items-center">
-        <h1 className="text-center">
-          <span className="block text-base mb-2">Welcome to</span>
-          <span className="flex items-end gap-4 text-5xl font-bold">
-            <Logo size={48} /> Scaffold-Lisk{" "}
-          </span>
+    <section className="flex items-center flex-col flex-grow pt-10 px-4">
+      {/* Branding */}
+      <div className="text-center">
+        <h1 className="text-4xl font-bold flex items-center justify-center gap-2">
+          <Logo size={48} />
+          Tokenización de bienes públicos
         </h1>
-        <div className="flex btn btn-md bg-base-100 w-fit justify-center mb-4 items-center space-x-2">
-          <p className="my-2 font-medium">Connected Address:</p>
+        <div className="mt-4">
+          <p>Connected Address:</p>
           <Address address={connectedAddress} />
         </div>
-        <p className="text-center text-base text-slate-400">
-          Get started by editing{" "}
-          <code className="italic bg-base-100 text-white p-1 rounded-md text-base font-bold max-w-full break-words break-all inline-block">
-            packages/nextjs/app/page.tsx
-          </code>
-        </p>
-        <p className="text-center text-base text-slate-400">
-          Edit your smart contract{" "}
-          <code className="italic bg-base-100 text-white p-1 rounded-md text-base font-bold max-w-full break-words break-all inline-block">
-            YourContract.sol
-          </code>{" "}
-          in{" "}
-          <code className="italic bg-base-100 text-white p-1 rounded-md text-base font-bold max-w-full break-words break-all inline-block">
-            packages/hardhat/contracts
-          </code>
-        </p>
       </div>
 
-      <div className="flex-grow bg-base-300 w-full mt-16 px-8 py-12">
-        <div className="flex justify-center items-center gap-12 flex-col sm:flex-row">
-          <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-            <BugAntIcon className="h-8 w-8" />
-            <p>
-              Tinker with your smart contract using the{" "}
-              <Link href="/debug" passHref className="link">
-                Debug Contracts
-              </Link>{" "}
-              tab.
-            </p>
-          </div>
-          <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-            <MagnifyingGlassIcon className="h-8 w-8" />
-            <p>
-              Explore your local transactions with the{" "}
-              <Link href="/blockexplorer" passHref className="link">
-                Block Explorer
-              </Link>{" "}
-              tab.
-            </p>
-          </div>
+      {/* Acción del contrato */}
+      <div className="mt-8">
+        <button className="btn btn-primary" disabled={!write || isWriting || isConfirming} onClick={handleMint}>
+          {isWriting || isConfirming ? "Minteando..." : "Mintear propiedad NFT"}
+        </button>
+
+        {isConfirmed && <p className="text-green-500 mt-2">✅ NFT minteado exitosamente</p>}
+        {writeError && <p className="text-red-500 mt-2">Error: {writeError.message}</p>}
+      </div>
+
+      {/* Navegación opcional */}
+      <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="p-6 bg-base-100 rounded-xl text-center">
+          <BugAntIcon className="h-8 w-8 mx-auto mb-2" />
+          <Link href="/debug" className="link">
+            Debug Contracts
+          </Link>
+        </div>
+        <div className="p-6 bg-base-100 rounded-xl text-center">
+          <MagnifyingGlassIcon className="h-8 w-8 mx-auto mb-2" />
+          <Link href="/blockexplorer" className="link">
+            Block Explorer
+          </Link>
         </div>
       </div>
     </section>
